@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vekaletname Sistemi</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+
+/* GİRİŞ */
+#girisEkrani {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; background: linear-gradient(135deg, #1a237e, #283593);
+}
+.girisKutu {
+  background: white; padding: 40px; border-radius: 16px;
+  width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.girisKutu h1 { font-size: 22px; color: #1a237e; margin-bottom: 6px; }
+.girisKutu p  { color: #888; font-size: 13px; margin-bottom: 28px; }
+.girisKutu input {
+  width: 100%; padding: 12px 14px; border: 1.5px solid #ddd;
+  border-radius: 8px; font-size: 14px; margin-bottom: 14px; outline: none;
+  transition: border 0.2s;
+}
+.girisKutu input:focus { border-color: #1a237e; }
+.girisKutu button {
+  width: 100%; padding: 13px; background: #1a237e; color: white;
+  border: none; border-radius: 8px; font-size: 15px; cursor: pointer;
+  font-weight: 600; transition: background 0.2s;
+}
+.girisKutu button:hover { background: #283593; }
+#girisHata { color: #e53935; font-size: 13px; margin-top: 10px; text-align: center; }
+
+/* ANA EKRAN */
+#anaEkran { display: none; min-height: 100vh; }
+.header {
+  background: #1a237e; color: white; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 60px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.header h1 { font-size: 18px; font-weight: 600; }
+.header-sag { display: flex; align-items: center; gap: 12px; }
+.cikisBtn {
+  background: rgba(255,255,255,0.15); color: white; border: none;
+  padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+}
+.cikisBtn:hover { background: rgba(255,255,255,0.25); }
+
+.icerik { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+/* İSTATİSTİKLER */
+.istatlar { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.istat {
+  background: white; padding: 16px 24px; border-radius: 12px;
+  flex: 1; min-width: 140px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  border-left: 4px solid;
+}
+.istat.yesil  { border-color: #2e7d32; }
+.istat.turuncu{ border-color: #e65100; }
+.istat.mavi   { border-color: #1565c0; }
+.istat-sayi   { font-size: 28px; font-weight: 700; }
+.istat.yesil  .istat-sayi { color: #2e7d32; }
+.istat.turuncu .istat-sayi { color: #e65100; }
+.istat.mavi   .istat-sayi { color: #1565c0; }
+.istat-etiket { font-size: 12px; color: #888; margin-top: 2px; }
+
+/* ARAMA + YÜKLEMEc */
+.aramaBar {
+  background: white; padding: 16px 20px; border-radius: 12px;
+  margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+.aramaBar input {
+  flex: 1; min-width: 200px; padding: 10px 14px;
+  border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 14px; outline: none;
+}
+.aramaBar input:focus { border-color: #1a237e; }
+.filtreBtns { display: flex; gap: 8px; }
+.filtreBtns button {
+  padding: 8px 16px; border-radius: 6px; border: 1.5px solid #ddd;
+  background: white; cursor: pointer; font-size: 13px; transition: all 0.15s;
+}
+.filtreBtns button.aktif { background: #1a237e; color: white; border-color: #1a237e; }
+
+/* TABLO */
+.tabloKutu {
+  background: white; border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+thead th {
+  background: #1a237e; color: white; padding: 12px 16px;
+  text-align: left; font-weight: 500; font-size: 13px;
+}
+tbody tr { border-bottom: 1px solid #f0f0f0; transition: background 0.1s; }
+tbody tr:hover { background: #fafafa; }
+tbody tr.eksik { background: #fff8f0; }
+tbody tr.eksik:hover { background: #fff0e0; }
+tbody tr.fazla { background: #f0f4ff; }
+td { padding: 11px 16px; }
+.sira { color: #888; font-size: 12px; width: 50px; }
+.isimCell { font-weight: 500; }
+.tcCell { font-family: monospace; font-size: 13px; color: #555; }
+.tarihCell { font-size: 13px; color: #666; }
+.durumBadge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+}
+.durumBadge.var     { background: #e8f5e9; color: #2e7d32; }
+.durumBadge.eksik   { background: #fff3e0; color: #e65100; }
+.durumBadge.fazla   { background: #e3f2fd; color: #1565c0; }
+.btnGrup { display: flex; gap: 6px; }
+.acBtn, .inBtn {
+  padding: 5px 12px; border-radius: 6px; border: none;
+  cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s;
+}
+.acBtn  { background: #1a237e; color: white; }
+.acBtn:hover  { background: #283593; }
+.inBtn  { background: #e8eaf6; color: #1a237e; }
+.inBtn:hover  { background: #c5cae9; }
+.cokPdf { font-size: 11px; background: #1976d2; color: white; border-radius: 10px; padding: 1px 7px; }
+
+/* PDF MODAL */
+#pdfModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+#pdfModal.acik { display: flex; }
+.modalIcerik {
+  background: white; border-radius: 12px; overflow: hidden;
+  width: 90vw; height: 90vh; display: flex; flex-direction: column;
+}
+.modalHeader {
+  background: #1a237e; color: white; padding: 12px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modalHeader span { font-weight: 600; font-size: 15px; }
+.kapat {
+  background: none; border: none; color: white;
+  font-size: 22px; cursor: pointer; line-height: 1;
+}
+#pdfFrame { flex: 1; border: none; }
+
+/* YÜKLEMEc MODAL */
+#yukleModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+#yukleModal.acik { display: flex; }
+.yukleKutu {
+  background: white; border-radius: 16px; padding: 32px;
+  width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.yukleKutu h2 { margin-bottom: 20px; color: #1a237e; font-size: 18px; }
+.formGrup { margin-bottom: 14px; }
+.formGrup label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; font-weight: 500; }
+.formGrup input, .formGrup select {
+  width: 100%; padding: 10px 12px; border: 1.5px solid #ddd;
+  border-radius: 8px; font-size: 14px; outline: none;
+}
+.formGrup input:focus, .formGrup select:focus { border-color: #1a237e; }
+.yukleKutu .butonlar { display: flex; gap: 10px; margin-top: 20px; }
+.yukleKutu .butonlar button {
+  flex: 1; padding: 11px; border-radius: 8px; border: none;
+  cursor: pointer; font-size: 14px; font-weight: 600;
+}
+.iptalBtn { background: #f5f5f5; color: #555; }
+.kaydetBtn { background: #1a237e; color: white; }
+#yukleIlerleme { margin-top: 10px; font-size: 13px; color: #555; text-align: center; }
+
+.yukleBtn {
+  background: #2e7d32; color: white; border: none;
+  padding: 9px 20px; border-radius: 8px; font-size: 14px;
+  cursor: pointer; font-weight: 600;
+}
+.yukleBtn:hover { background: #388e3c; }
+#yukleniyor { text-align: center; padding: 40px; color: #888; }
+</style>
+</head>
+<body>
+
+<!-- GİRİŞ EKRANI -->
+<div id="girisEkrani">
+  <div class="girisKutu">
+    <h1>📄 Vekaletname Sistemi</h1>
+    <p>Devam etmek için giriş yapın</p>
+    <input type="email" id="email" placeholder="E-posta" value="praykpax@gmail.com">
+    <input type="password" id="sifre" placeholder="Şifre" onkeydown="if(event.key==='Enter')girisYap()">
+    <button onclick="girisYap()">Giriş Yap</button>
+    <div id="girisHata"></div>
+  </div>
+</div>
+
+<!-- ANA EKRAN -->
+<div id="anaEkran">
+  <div class="header">
+    <h1>📄 Vekaletname Sistemi</h1>
+    <div class="header-sag">
+      <button class="yukleBtn" onclick="yukleModalAc()">+ Yeni Vekalet</button>
+      <button class="cikisBtn" onclick="cikisYap()">Çıkış</button>
+    </div>
+  </div>
+
+  <div class="icerik">
+    <!-- İstatistikler -->
+    <div class="istatlar">
+      <div class="istat yesil">
+        <div class="istat-sayi" id="varSayisi">—</div>
+        <div class="istat-etiket">Mevcut Vekalet</div>
+      </div>
+      <div class="istat turuncu">
+        <div class="istat-sayi" id="eksikSayisi">—</div>
+        <div class="istat-etiket">Eksik Vekalet</div>
+      </div>
+      <div class="istat mavi">
+        <div class="istat-sayi" id="toplamSayisi">—</div>
+        <div class="istat-etiket">Toplam Kayıt</div>
+      </div>
+    </div>
+
+    <!-- Arama -->
+    <div class="aramaBar">
+      <input type="text" id="aramaInput" placeholder="İsim veya TC ile ara..." oninput="filtrele()">
+      <div class="filtreBtns">
+        <button class="aktif" onclick="filtreDegistir('HEPSI', this)">Hepsi</button>
+        <button onclick="filtreDegistir('VAR', this)">Mevcut</button>
+        <button onclick="filtreDegistir('EKSİK', this)">Eksik</button>
+        <button onclick="filtreDegistir('FAZLA', this)">Fazla</button>
+      </div>
+    </div>
+
+    <!-- Tablo -->
+    <div class="tabloKutu">
+      <div id="yukleniyor">Yükleniyor...</div>
+      <table id="tablo" style="display:none">
+        <thead>
+          <tr>
+            <th style="width:50px">#</th>
+            <th>İsim</th>
+            <th style="width:130px">TC</th>
+            <th style="width:110px">Tarih</th>
+            <th style="width:100px">Durum</th>
+            <th style="width:130px">İşlem</th>
+          </tr>
+        </thead>
+        <tbody id="tabloBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- PDF MODAL -->
+<div id="pdfModal">
+  <div class="modalIcerik">
+    <div class="modalHeader">
+      <span id="pdfBaslik">PDF</span>
+      <button class="kapat" onclick="pdfKapat()">✕</button>
+    </div>
+    <iframe id="pdfFrame" src=""></iframe>
+  </div>
+</div>
+
+<!-- YENİ VEKALET MODAL -->
+<div id="yukleModal">
+  <div class="yukleKutu">
+    <h2>+ Yeni Vekalet Ekle</h2>
+    <div class="formGrup">
+      <label>İsim *</label>
+      <input type="text" id="yeniIsim" placeholder="Ad Soyad">
+    </div>
+    <div class="formGrup">
+      <label>TC Kimlik No</label>
+      <input type="text" id="yeniTc" placeholder="11 haneli TC" maxlength="11">
+    </div>
+    <div class="formGrup">
+      <label>Tarih</label>
+      <input type="text" id="yeniTarih" placeholder="GG.AA.YYYY">
+    </div>
+    <div class="formGrup">
+      <label>PDF Dosyası *</label>
+      <input type="file" id="yeniPdf" accept=".pdf">
+    </div>
+    <div id="yukleIlerleme"></div>
+    <div class="butonlar">
+      <button class="iptalBtn" onclick="yukleModalKapat()">İptal</button>
+      <button class="kaydetBtn" onclick="yeniVekaletKaydet()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://hgijiuvzkpbmumeoxdwi.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_mqoEToEgbVaBKu_9ZZEg1Q_MFP_RTri';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let tumKayitlar = [];
+let aktifFiltre = 'HEPSI';
+
+// GİRİŞ
+async function girisYap() {
+  const email = document.getElementById('email').value.trim();
+  const sifre = document.getElementById('sifre').value;
+  document.getElementById('girisHata').textContent = '';
+
+  const { error } = await sb.auth.signInWithPassword({ email, password: sifre });
+  if (error) {
+    document.getElementById('girisHata').textContent = 'Hatalı e-posta veya şifre';
+    return;
+  }
+  document.getElementById('girisEkrani').style.display = 'none';
+  document.getElementById('anaEkran').style.display = 'block';
+  kayitlariYukle();
+}
+
+async function cikisYap() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// VERİLERİ YÜKLE
+async function kayitlariYukle() {
+  const { data, error } = await sb.from('vekaletnameler')
+    .select('*').order('sira_no', { ascending: true });
+
+  if (error) { console.error(error); return; }
+
+  tumKayitlar = data;
+  istatGuncelle();
+  tabloGuncelle();
+  document.getElementById('yukleniyor').style.display = 'none';
+  document.getElementById('tablo').style.display = 'table';
+}
+
+function istatGuncelle() {
+  const var_  = tumKayitlar.filter(r => r.durum === 'VAR').length;
+  const eksik = tumKayitlar.filter(r => r.durum === 'EKSİK').length;
+  document.getElementById('varSayisi').textContent   = var_;
+  document.getElementById('eksikSayisi').textContent = eksik;
+  document.getElementById('toplamSayisi').textContent = tumKayitlar.length;
+}
+
+function filtreDegistir(filtre, btn) {
+  aktifFiltre = filtre;
+  document.querySelectorAll('.filtreBtns button').forEach(b => b.classList.remove('aktif'));
+  btn.classList.add('aktif');
+  tabloGuncelle();
+}
+
+function filtrele() { tabloGuncelle(); }
+
+function tabloGuncelle() {
+  const arama   = document.getElementById('aramaInput').value.toLowerCase().trim();
+  const kayitlar = tumKayitlar.filter(r => {
+    const filtreOk = aktifFiltre === 'HEPSI' || r.durum === aktifFiltre;
+    const aramaOk  = !arama ||
+      (r.isim && r.isim.toLowerCase().includes(arama)) ||
+      (r.tc && r.tc.includes(arama));
+    return filtreOk && aramaOk;
+  });
+
+  const tbody = document.getElementById('tabloBody');
+  tbody.innerHTML = kayitlar.map(r => {
+    const durumClass = r.durum === 'VAR' ? 'var' : r.durum === 'EKSİK' ? 'eksik' : 'fazla';
+    const durumText  = r.durum === 'VAR' ? '✓ Mevcut' : r.durum === 'EKSİK' ? '⚠ Eksik' : '+ Fazla';
+    const islemler   = r.dosya_yolu
+      ? `<div class="btnGrup">
+           <button class="acBtn" onclick="pdfAc('${r.dosya_yolu}','${escHtml(r.isim)}')">Aç</button>
+           <button class="inBtn" onclick="pdfIndir('${r.dosya_yolu}','${escHtml(r.isim)}')">↓</button>
+         </div>`
+      : '<span style="color:#bbb;font-size:12px">PDF yok</span>';
+
+    const satirClass = r.durum === 'EKSİK' ? 'eksik' : r.durum === 'FAZLA' ? 'fazla' : '';
+    return `<tr class="${satirClass}">
+      <td class="sira">${r.sira_no || ''}</td>
+      <td class="isimCell">${escHtml(r.isim)}</td>
+      <td class="tcCell">${r.tc || '—'}</td>
+      <td class="tarihCell">${r.tarih || '—'}</td>
+      <td><span class="durumBadge ${durumClass}">${durumText}</span></td>
+      <td>${islemler}</td>
+    </tr>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// PDF AÇ
+async function pdfAc(dosyaYolu, isim) {
+  const { data } = sb.storage.from('vekaletler').getPublicUrl(dosyaYolu);
+  document.getElementById('pdfBaslik').textContent = isim;
+  document.getElementById('pdfFrame').src = data.publicUrl;
+  document.getElementById('pdfModal').classList.add('acik');
+}
+
+function pdfKapat() {
+  document.getElementById('pdfModal').classList.remove('acik');
+  document.getElementById('pdfFrame').src = '';
+}
+
+async function pdfIndir(dosyaYolu, isim) {
+  const { data } = sb.storage.from('vekaletler').getPublicUrl(dosyaYolu);
+  const a = document.createElement('a');
+  a.href = data.publicUrl;
+  a.download = isim + '.pdf';
+  a.click();
+}
+
+// YENİ VEKALET
+function yukleModalAc()   { document.getElementById('yukleModal').classList.add('acik'); }
+function yukleModalKapat(){ document.getElementById('yukleModal').classList.remove('acik'); }
+
+async function yeniVekaletKaydet() {
+  const isim  = document.getElementById('yeniIsim').value.trim().toUpperCase();
+  const tc    = document.getElementById('yeniTc').value.trim();
+  const tarih = document.getElementById('yeniTarih').value.trim();
+  const dosya = document.getElementById('yeniPdf').files[0];
+
+  if (!isim || !dosya) {
+    alert('İsim ve PDF zorunludur!'); return;
+  }
+
+  const ilerleme = document.getElementById('yukleIlerleme');
+  ilerleme.textContent = 'Yükleniyor...';
+
+  const maxSira  = Math.max(...tumKayitlar.map(r => r.sira_no || 0), 0) + 1;
+  const dosyaAdi = `${maxSira}/${dosya.name}`;
+
+  const { error: upErr } = await sb.storage.from('vekaletler')
+    .upload(dosyaAdi, dosya, { contentType: 'application/pdf', upsert: true });
+
+  if (upErr) { ilerleme.textContent = 'Hata: ' + upErr.message; return; }
+
+  const { error: dbErr } = await sb.from('vekaletnameler').insert({
+    sira_no: maxSira, isim, tc: tc || null, tarih: tarih || null,
+    dosya_yolu: dosyaAdi, durum: 'VAR', pdf_sayisi: 1
+  });
+
+  if (dbErr) { ilerleme.textContent = 'Hata: ' + dbErr.message; return; }
+
+  ilerleme.textContent = '✓ Kaydedildi!';
+  setTimeout(() => { yukleModalKapat(); kayitlariYukle(); }, 1000);
+}
+
+// ESC ile modal kapat
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { pdfKapat(); yukleModalKapat(); }
+});
+</script>
+</body>
+</html>
