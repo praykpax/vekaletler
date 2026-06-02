@@ -393,9 +393,11 @@ function escHtml(s) {
 
 // PDF AÇ
 async function pdfAc(dosyaYolu, isim) {
-  const { data } = sb.storage.from('vekaletler').getPublicUrl(dosyaYolu);
+  const { data, error } = await sb.storage.from('vekaletler')
+    .createSignedUrl(dosyaYolu, 3600);
+  if (error) { alert('PDF açılamadı: ' + error.message); return; }
   document.getElementById('pdfBaslik').textContent = isim;
-  document.getElementById('pdfFrame').src = data.publicUrl;
+  document.getElementById('pdfFrame').src = data.signedUrl;
   document.getElementById('pdfModal').classList.add('acik');
 }
 
@@ -405,9 +407,11 @@ function pdfKapat() {
 }
 
 async function pdfIndir(dosyaYolu, isim) {
-  const { data } = sb.storage.from('vekaletler').getPublicUrl(dosyaYolu);
+  const { data, error } = await sb.storage.from('vekaletler')
+    .createSignedUrl(dosyaYolu, 60);
+  if (error) { alert('İndirme hatası: ' + error.message); return; }
   const a = document.createElement('a');
-  a.href = data.publicUrl;
+  a.href = data.signedUrl;
   a.download = isim + '.pdf';
   a.click();
 }
