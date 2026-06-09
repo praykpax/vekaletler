@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Vekaletname Sistemi</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; -webkit-tap-highlight-color: transparent; }
@@ -109,32 +108,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; -w
   align-items: center; gap: 5px;
 }
 .btn-ac    { background: #1a237e; color: white; }
-.btn-indir { background: #e8eaf6; color: #1a237e; }
 .btn-paylас { background: #25d366; color: white; }
-.btn-kopyala { background: #f5f5f5; color: #555; }
-.cokPdf { font-size: 11px; background: #1976d2; color: white; border-radius: 10px; padding: 2px 8px; }
-
-/* PDF MODAL */
-#pdfModal {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.85); z-index: 200;
-}
-#pdfModal.acik { display: flex; flex-direction: column; }
-.modalHeader {
-  background: #1a237e; color: white; padding: 12px 16px;
-  display: flex; align-items: center; justify-content: space-between;
-  flex-shrink: 0;
-}
-.modalBaslik { font-weight: 600; font-size: 14px; flex: 1; margin-right: 8px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.modalBtnlar { display: flex; gap: 8px; flex-shrink: 0; }
-.modalBtn {
-  background: rgba(255,255,255,0.15); color: white; border: none;
-  padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
-}
-.modalBtn.wp  { background: #25d366; }
-.modalBtn.kapat { font-size: 18px; padding: 4px 10px; }
-#pdfFrame { flex: 1; border: none; width: 100%; }
 
 /* YENİ VEKALET MODAL */
 #yukleModal {
@@ -182,12 +156,10 @@ body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; -w
     cursor: pointer; font-size: 12px; font-weight: 600;
   }
   .tbl-ac    { background: #1a237e; color: white; }
-  .tbl-indir { background: #e8eaf6; color: #1a237e; }
   .tbl-wp    { background: #25d366; color: white; }
 }
 @media (max-width: 699px) {
   .tabloKutu { display: none; }
-  #yukleModal { align-items: flex-end; }
 }
 </style>
 </head>
@@ -197,8 +169,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; -w
 <div id="girisEkrani">
   <div class="girisKutu">
     <h1>📄 Vekaletname Sistemi</h1>
-    <p>Devam etmek için giriş yapın</p>
-    <input type="email" id="email" placeholder="E-posta" value="praykpax@gmail.com">
+    <p>Devam etmek için şifre girin</p>
     <input type="password" id="sifre" placeholder="Şifre" onkeydown="if(event.key==='Enter')girisYap()">
     <button onclick="girisYap()">Giriş Yap</button>
     <div id="girisHata"></div>
@@ -265,19 +236,6 @@ body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; -w
   </div>
 </div>
 
-<!-- PDF MODAL -->
-<div id="pdfModal">
-  <div class="modalHeader">
-    <span class="modalBaslik" id="pdfBaslik"></span>
-    <div class="modalBtnlar">
-      <button class="modalBtn wp" onclick="wpPaylas()">WhatsApp</button>
-      <button class="modalBtn" onclick="pdfIndir()">↓ İndir</button>
-      <button class="modalBtn kapat" onclick="pdfKapat()">✕</button>
-    </div>
-  </div>
-  <iframe id="pdfFrame" src=""></iframe>
-</div>
-
 <!-- YENİ VEKALET -->
 <div id="yukleModal">
   <div class="yukleKutu">
@@ -296,7 +254,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; -w
     </div>
     <div class="formGrup">
       <label>PDF Dosyası *</label>
-      <input type="file" id="yeniPdf" accept=".pdf" capture>
+      <input type="file" id="yeniPdf" accept=".pdf">
     </div>
     <div id="yukleIlerleme"></div>
     <div class="butonlar">
@@ -307,47 +265,62 @@ body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; -w
 </div>
 
 <script>
-const SUPABASE_URL = 'https://hgijiuvzkpbmumeoxdwi.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_mqoEToEgbVaBKu_9ZZEg1Q_MFP_RTri';
-const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+// !! BURAYA Apps Script deploy URL'nizi yapıştırın !!
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyCf1WknrIfLQDUcLgmbtfriAlkEBazqPF5upy-EcWtNzg1H1hzcKP66F-XThsFOShB/exec';
 
 let tumKayitlar = [];
 let aktifFiltre = 'HEPSI';
-let aktifPdfUrl = '';
-let aktifPdfIsim = '';
+let aktifSifre  = '';
 
-async function girisYap() {
-  const email = document.getElementById('email').value.trim();
-  const sifre = document.getElementById('sifre').value;
-  document.getElementById('girisHata').textContent = '';
-  const { error } = await sb.auth.signInWithPassword({ email, password: sifre });
-  if (error) { document.getElementById('girisHata').textContent = 'Hatalı e-posta veya şifre'; return; }
-  document.getElementById('girisEkrani').style.display = 'none';
-  document.getElementById('anaEkran').style.display = 'block';
-  kayitlariYukle();
+async function api(data) {
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ sifre: aktifSifre, ...data })
+  });
+  return res.json();
 }
 
-async function cikisYap() { await sb.auth.signOut(); location.reload(); }
+async function girisYap() {
+  const sifre = document.getElementById('sifre').value;
+  const hataEl = document.getElementById('girisHata');
+  hataEl.textContent = 'Kontrol ediliyor...';
+  try {
+    aktifSifre = sifre;
+    const sonuc = await api({ islem: 'giris' });
+    if (sonuc.hata) { hataEl.textContent = 'Hatalı şifre'; aktifSifre = ''; return; }
+    hataEl.textContent = '';
+    document.getElementById('girisEkrani').style.display = 'none';
+    document.getElementById('anaEkran').style.display = 'block';
+    kayitlariYukle();
+  } catch (e) {
+    hataEl.textContent = 'Bağlantı hatası. Script URL doğru mu?';
+  }
+}
+
+function cikisYap() { aktifSifre = ''; location.reload(); }
 
 async function kayitlariYukle() {
-  const { data } = await sb.from('vekaletnameler').select('*').order('sira_no');
-  tumKayitlar = data || [];
-  istatGuncelle();
-  tabloGuncelle();
-  document.getElementById('yukleniyor').style.display = 'none';
-  document.getElementById('tablo').style.display = 'table';
+  try {
+    const sonuc = await api({ islem: 'liste' });
+    tumKayitlar = sonuc.kayitlar || [];
+    istatGuncelle();
+    tabloGuncelle();
+    document.getElementById('yukleniyor').style.display = 'none';
+    document.getElementById('tablo').style.display = 'table';
+  } catch (e) {
+    document.getElementById('yukleniyor').textContent = 'Yükleme hatası';
+  }
 }
 
 function istatGuncelle() {
-  document.getElementById('varSayisi').textContent   = tumKayitlar.filter(r=>r.durum==='VAR').length;
-  document.getElementById('eksikSayisi').textContent = tumKayitlar.filter(r=>r.durum==='EKSİK').length;
+  document.getElementById('varSayisi').textContent    = tumKayitlar.filter(r => r.durum === 'VAR').length;
+  document.getElementById('eksikSayisi').textContent  = tumKayitlar.filter(r => r.durum === 'EKSİK').length;
   document.getElementById('toplamSayisi').textContent = tumKayitlar.length;
 }
 
 function filtreDegistir(f, btn) {
   aktifFiltre = f;
-  document.querySelectorAll('.filtreBtns button').forEach(b=>b.classList.remove('aktif'));
+  document.querySelectorAll('.filtreBtns button').forEach(b => b.classList.remove('aktif'));
   btn.classList.add('aktif');
   tabloGuncelle();
 }
@@ -357,29 +330,26 @@ function tabloGuncelle() {
   const q = document.getElementById('aramaInput').value.toLowerCase().trim();
   const liste = tumKayitlar.filter(r => {
     const fOk = aktifFiltre === 'HEPSI' || r.durum === aktifFiltre;
-    const aOk = !q || (r.isim||'').toLowerCase().includes(q) || (r.tc||'').includes(q);
+    const aOk = !q || (r.isim || '').toLowerCase().includes(q) || (r.tc || '').includes(q);
     return fOk && aOk;
   });
 
   // Mobil kartlar
   document.getElementById('kartlar').innerHTML = liste.map(r => {
-    const cls = r.durum==='VAR'?'':'r.durum==="EKSİK"?"eksik":"fazla"';
-    const kartCls = r.durum==='EKSİK'?'eksik':r.durum==='FAZLA'?'fazla':'';
-    const badge = r.durum==='VAR'?'<span class="durumBadge var">✓ Mevcut</span>'
-                : r.durum==='EKSİK'?'<span class="durumBadge eksik">⚠ Eksik</span>'
-                : '<span class="durumBadge fazla">+ Fazla</span>';
-    const btns = r.dosya_yolu
-      ? `<button class="btn btn-ac" onclick="pdfAc('${r.dosya_yolu}','${esc(r.isim)}')">📄 Aç</button>
-         <button class="btn btn-paylас" onclick="pdfPaylas('${r.dosya_yolu}','${esc(r.isim)}')">📤 Paylaş</button>`
+    const kartCls = r.durum === 'EKSİK' ? 'eksik' : r.durum === 'FAZLA' ? 'fazla' : '';
+    const badge = badgeHtml(r.durum);
+    const btns = r.dosya_id
+      ? `<button class="btn btn-ac" onclick="pdfAc('${r.dosya_id}')">📄 Aç</button>
+         <button class="btn btn-paylас" onclick="pdfPaylas('${r.dosya_id}','${esc(r.isim)}')">📤 Paylaş</button>`
       : '';
     return `<div class="kart ${kartCls}">
       <div class="kart-ust">
         <div class="kart-isim">${esc(r.isim)}</div>
-        <div class="kart-sira">#${r.sira_no||''}</div>
+        <div class="kart-sira">#${r.sira_no || ''}</div>
       </div>
       <div class="kart-detay">
-        ${r.tc?`<span class="tc">TC: ${r.tc}</span>`:''}
-        ${r.tarih?`<span>📅 ${r.tarih}</span>`:''}
+        ${r.tc ? `<span class="tc">TC: ${r.tc}</span>` : ''}
+        ${r.tarih ? `<span>📅 ${r.tarih}</span>` : ''}
       </div>
       <div class="kart-alt">${badge}${btns}</div>
     </div>`;
@@ -387,89 +357,62 @@ function tabloGuncelle() {
 
   // Masaüstü tablo
   document.getElementById('tabloBody').innerHTML = liste.map(r => {
-    const trCls = r.durum==='EKSİK'?'eksik':r.durum==='FAZLA'?'fazla':'';
-    const badge = r.durum==='VAR'?'<span class="durumBadge var">✓ Mevcut</span>'
-                : r.durum==='EKSİK'?'<span class="durumBadge eksik">⚠ Eksik</span>'
-                : '<span class="durumBadge fazla">+ Fazla</span>';
-    const btns = r.dosya_yolu
+    const trCls = r.durum === 'EKSİK' ? 'eksik' : r.durum === 'FAZLA' ? 'fazla' : '';
+    const btns = r.dosya_id
       ? `<div class="btnGrup">
-           <button class="tblBtn tbl-ac" onclick="pdfAc('${r.dosya_yolu}','${esc(r.isim)}')">Aç</button>
-           <button class="tblBtn tbl-wp" onclick="pdfPaylas('${r.dosya_yolu}','${esc(r.isim)}')">📤</button>
-           <button class="tblBtn tbl-indir" onclick="pdfIndirDosya('${r.dosya_yolu}','${esc(r.isim)}')">↓</button>
+           <button class="tblBtn tbl-ac" onclick="pdfAc('${r.dosya_id}')">Aç</button>
+           <button class="tblBtn tbl-wp" onclick="pdfPaylas('${r.dosya_id}','${esc(r.isim)}')">📤</button>
          </div>`
       : '<span style="color:#bbb;font-size:12px">PDF yok</span>';
     return `<tr class="${trCls}">
-      <td style="color:#999;font-size:12px">${r.sira_no||''}</td>
+      <td style="color:#999;font-size:12px">${r.sira_no || ''}</td>
       <td style="font-weight:500">${esc(r.isim)}</td>
-      <td style="font-family:monospace;font-size:13px">${r.tc||'—'}</td>
-      <td style="font-size:13px;color:#666">${r.tarih||'—'}</td>
-      <td>${badge}</td>
+      <td style="font-family:monospace;font-size:13px">${r.tc || '—'}</td>
+      <td style="font-size:13px;color:#666">${r.tarih || '—'}</td>
+      <td>${badgeHtml(r.durum)}</td>
       <td>${btns}</td>
     </tr>`;
   }).join('');
 }
 
+function badgeHtml(durum) {
+  if (durum === 'VAR')   return '<span class="durumBadge var">✓ Mevcut</span>';
+  if (durum === 'EKSİK') return '<span class="durumBadge eksik">⚠ Eksik</span>';
+  return '<span class="durumBadge fazla">+ Fazla</span>';
+}
+
 function esc(s) {
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// PDF İŞLEMLERİ
-async function pdfAc(dosyaYolu, isim) {
-  const { data, error } = await sb.storage.from('vekaletler').createSignedUrl(dosyaYolu, 3600);
-  if (error) { alert('Hata: ' + error.message); return; }
-  aktifPdfUrl  = data.signedUrl;
-  aktifPdfIsim = isim;
-  document.getElementById('pdfBaslik').textContent = isim;
-  document.getElementById('pdfFrame').src = data.signedUrl;
-  document.getElementById('pdfModal').classList.add('acik');
+// PDF işlemleri — Google Drive'da aç
+function pdfAc(dosyaId) {
+  window.open(`https://drive.google.com/file/d/${dosyaId}/preview`, '_blank');
 }
 
-function pdfKapat() {
-  document.getElementById('pdfModal').classList.remove('acik');
-  document.getElementById('pdfFrame').src = '';
-  aktifPdfUrl = '';
-}
-
-function wpPaylas() {
-  if (!aktifPdfUrl) return;
-  const mesaj = encodeURIComponent(`📄 ${aktifPdfIsim}\n${aktifPdfUrl}`);
-  window.open(`https://wa.me/?text=${mesaj}`, '_blank');
-}
-
-async function pdfPaylas(dosyaYolu, isim) {
-  const { data, error } = await sb.storage.from('vekaletler').createSignedUrl(dosyaYolu, 3600);
-  if (error) { alert('Hata: ' + error.message); return; }
+function pdfPaylas(dosyaId, isim) {
+  const url = `https://drive.google.com/file/d/${dosyaId}/view`;
   if (navigator.share) {
-    try {
-      await navigator.share({ title: isim, text: '📄 ' + isim, url: data.signedUrl });
-      return;
-    } catch(e) {}
+    navigator.share({ title: isim, text: '📄 ' + isim, url }).catch(() => wpAc(url, isim));
+    return;
   }
-  // Fallback: WhatsApp
-  const mesaj = encodeURIComponent(`📄 ${isim}\n${data.signedUrl}`);
-  window.open(`https://wa.me/?text=${mesaj}`, '_blank');
+  wpAc(url, isim);
 }
 
-async function pdfIndir() {
-  if (!aktifPdfUrl) return;
-  const a = document.createElement('a');
-  a.href = aktifPdfUrl;
-  a.download = aktifPdfIsim + '.pdf';
-  a.click();
+function wpAc(url, isim) {
+  window.open(`https://wa.me/?text=${encodeURIComponent('📄 ' + isim + '\n' + url)}`, '_blank');
 }
 
-async function pdfIndirDosya(dosyaYolu, isim) {
-  const { data, error } = await sb.storage.from('vekaletler').createSignedUrl(dosyaYolu, 60);
-  if (error) { alert('Hata: ' + error.message); return; }
-  const a = document.createElement('a');
-  a.href = data.signedUrl;
-  a.download = isim + '.pdf';
-  a.click();
-}
-
-// YENİ VEKALET
+// Yeni vekalet
 function yukleModalAc()    { document.getElementById('yukleModal').classList.add('acik'); }
-function yukleModalKapat() { document.getElementById('yukleModal').classList.remove('acik'); }
+function yukleModalKapat() {
+  document.getElementById('yukleModal').classList.remove('acik');
+  document.getElementById('yukleIlerleme').textContent = '';
+  document.getElementById('yeniIsim').value  = '';
+  document.getElementById('yeniTc').value    = '';
+  document.getElementById('yeniTarih').value = '';
+  document.getElementById('yeniPdf').value   = '';
+}
 
 async function yeniVekaletKaydet() {
   const isim  = document.getElementById('yeniIsim').value.trim().toUpperCase();
@@ -477,24 +420,39 @@ async function yeniVekaletKaydet() {
   const tarih = document.getElementById('yeniTarih').value.trim();
   const dosya = document.getElementById('yeniPdf').files[0];
   if (!isim || !dosya) { alert('İsim ve PDF zorunludur!'); return; }
+
   const ilerleme = document.getElementById('yukleIlerleme');
-  ilerleme.textContent = 'Yükleniyor...';
-  const maxSira = Math.max(...tumKayitlar.map(r=>r.sira_no||0), 0) + 1;
-  const dosyaAdi = `${maxSira}/${dosya.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
-  const { error: upErr } = await sb.storage.from('vekaletler')
-    .upload(dosyaAdi, dosya, { contentType: 'application/pdf', upsert: true });
-  if (upErr) { ilerleme.textContent = 'Hata: ' + upErr.message; return; }
-  const { error: dbErr } = await sb.from('vekaletnameler').insert({
-    sira_no: maxSira, isim, tc: tc||null, tarih: tarih||null,
-    dosya_yolu: dosyaAdi, durum: 'VAR', pdf_sayisi: 1
+  ilerleme.textContent = 'PDF okunuyor...';
+
+  // PDF'i base64'e çevir
+  const pdfBase64 = await new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = e => res(e.target.result.split(',')[1]);
+    reader.onerror = rej;
+    reader.readAsDataURL(dosya);
   });
-  if (dbErr) { ilerleme.textContent = 'Hata: ' + dbErr.message; return; }
-  ilerleme.textContent = '✓ Kaydedildi!';
-  setTimeout(() => { yukleModalKapat(); kayitlariYukle(); }, 1000);
+
+  ilerleme.textContent = 'Drive\'a yükleniyor...';
+
+  try {
+    const sonuc = await api({
+      islem: 'kaydet',
+      isim, tc, tarih,
+      dosyaAdi: dosya.name.replace(/[^a-zA-Z0-9.\-_]/g, '_'),
+      pdfBase64
+    });
+
+    if (sonuc.hata) { ilerleme.textContent = 'Hata: ' + sonuc.hata; return; }
+
+    ilerleme.textContent = '✓ Kaydedildi!';
+    setTimeout(() => { yukleModalKapat(); kayitlariYukle(); }, 1000);
+  } catch (e) {
+    ilerleme.textContent = 'Bağlantı hatası';
+  }
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { pdfKapat(); yukleModalKapat(); }
+  if (e.key === 'Escape') yukleModalKapat();
 });
 </script>
 </body>
