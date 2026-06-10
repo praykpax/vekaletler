@@ -303,10 +303,10 @@ async function kayitlariYukle() {
   try {
     const sonuc = await api({ islem: 'liste' });
     tumKayitlar = sonuc.kayitlar || [];
-    istatGuncelle();
-    tabloGuncelle();
     document.getElementById('yukleniyor').style.display = 'none';
     document.getElementById('tablo').style.display = 'table';
+    istatGuncelle();
+    tabloGuncelle();
   } catch (e) {
     document.getElementById('yukleniyor').textContent = 'Yükleme hatası';
   }
