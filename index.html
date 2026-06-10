@@ -330,7 +330,7 @@ function tabloGuncelle() {
   const q = document.getElementById('aramaInput').value.toLowerCase().trim();
   const liste = tumKayitlar.filter(r => {
     const fOk = aktifFiltre === 'HEPSI' || r.durum === aktifFiltre;
-    const aOk = !q || (r.isim || '').toLowerCase().includes(q) || (r.tc || '').includes(q);
+    const aOk = !q || (r.isim || '').toLowerCase().includes(q) || String(r.tc || '').includes(q);
     return fOk && aOk;
   });
 
