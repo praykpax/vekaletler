@@ -272,45 +272,103 @@ let tumKayitlar = [];
 let aktifFiltre = 'HEPSI';
 let aktifSifre  = '';
 
-async function api(data) {
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    body: JSON.stringify({ sifre: aktifSifre, ...data })
-  });
-  return res.json();
+// Tek istek: 20sn zaman aşımı; toplamda 3 deneme (Apps Script bazen yavaş/cevapsız kalıyor)
+async function api(data, denemeSayisi = 3) {
+  let sonHata;
+  for (let i = 0; i < denemeSayisi; i++) {
+    const ctrl = new AbortController();
+    const zamanlayici = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ sifre: aktifSifre, ...data }),
+        signal: ctrl.signal
+      });
+      clearTimeout(zamanlayici);
+      const metin = await res.text();
+      try { return JSON.parse(metin); }
+      catch (e) { throw new Error('Sunucu geçersiz cevap döndürdü'); }
+    } catch (e) {
+      clearTimeout(zamanlayici);
+      sonHata = e;
+      if (i < denemeSayisi - 1) await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+    }
+  }
+  throw sonHata;
 }
 
-async function girisYap() {
-  const sifre = document.getElementById('sifre').value;
+async function girisYap(otomatik = false) {
+  const sifre = otomatik ? aktifSifre : document.getElementById('sifre').value;
   const hataEl = document.getElementById('girisHata');
+  if (!sifre) { hataEl.textContent = 'Şifre girin'; return; }
   hataEl.textContent = 'Kontrol ediliyor...';
   try {
     aktifSifre = sifre;
     const sonuc = await api({ islem: 'giris' });
-    if (sonuc.hata) { hataEl.textContent = 'Hatalı şifre'; aktifSifre = ''; return; }
+    if (sonuc.hata) {
+      hataEl.textContent = 'Hatalı şifre';
+      aktifSifre = '';
+      localStorage.removeItem('vekalet_sifre');
+      return;
+    }
+    localStorage.setItem('vekalet_sifre', sifre);
     hataEl.textContent = '';
-    document.getElementById('girisEkrani').style.display = 'none';
-    document.getElementById('anaEkran').style.display = 'block';
-    kayitlariYukle();
+    anaEkranaGec();
   } catch (e) {
-    hataEl.textContent = 'Bağlantı hatası. Script URL doğru mu?';
+    // Sunucuya ulaşılamadı. Şifre daha önce doğrulanmışsa önbellekle aç, yoksa girişe izin verme.
+    if (otomatik && localStorage.getItem('vekalet_kayitlar')) {
+      hataEl.textContent = '';
+      anaEkranaGec();
+      return;
+    }
+    aktifSifre = '';
+    hataEl.textContent = 'Sunucuya ulaşılamadı, tekrar deneyin';
   }
 }
 
-function cikisYap() { aktifSifre = ''; location.reload(); }
+function anaEkranaGec() {
+  document.getElementById('girisEkrani').style.display = 'none';
+  document.getElementById('anaEkran').style.display = 'block';
+  // Önce önbellekteki veriyi anında göster, arka planda tazele
+  const kayitli = localStorage.getItem('vekalet_kayitlar');
+  if (kayitli) {
+    try {
+      tumKayitlar = JSON.parse(kayitli);
+      document.getElementById('yukleniyor').style.display = 'none';
+      document.getElementById('tablo').style.display = 'table';
+      istatGuncelle();
+      tabloGuncelle();
+    } catch (e) {}
+  }
+  kayitlariYukle();
+}
+
+function cikisYap() {
+  aktifSifre = '';
+  localStorage.removeItem('vekalet_sifre');
+  location.reload();
+}
 
 async function kayitlariYukle() {
   try {
     const sonuc = await api({ islem: 'liste' });
     tumKayitlar = sonuc.kayitlar || [];
+    localStorage.setItem('vekalet_kayitlar', JSON.stringify(tumKayitlar));
     document.getElementById('yukleniyor').style.display = 'none';
     document.getElementById('tablo').style.display = 'table';
     istatGuncelle();
     tabloGuncelle();
   } catch (e) {
-    document.getElementById('yukleniyor').textContent = 'Yükleme hatası';
+    if (tumKayitlar.length > 0) return; // önbellek zaten ekranda
+    document.getElementById('yukleniyor').textContent = 'Yükleme hatası — sayfayı yenileyin';
   }
 }
+
+// Kayıtlı oturum varsa otomatik giriş (şifre yine sunucuda doğrulanır)
+window.addEventListener('DOMContentLoaded', () => {
+  const kayitliSifre = localStorage.getItem('vekalet_sifre');
+  if (kayitliSifre) { aktifSifre = kayitliSifre; girisYap(true); }
+});
 
 function istatGuncelle() {
   document.getElementById('varSayisi').textContent    = tumKayitlar.filter(r => r.durum === 'VAR').length;
@@ -326,11 +384,20 @@ function filtreDegistir(f, btn) {
 }
 function filtrele() { tabloGuncelle(); }
 
+// Türkçe harf duyarsız karşılaştırma: İ/I/ı/i hepsi 'i' sayılır,
+// büyük-küçük harf ve aksan farkı aramayı etkilemez
+function trNormalize(s) {
+  return (s || '')
+    .replace(/İ/g, 'i').replace(/I/g, 'i').replace(/ı/g, 'i')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function tabloGuncelle() {
-  const q = document.getElementById('aramaInput').value.toLowerCase().trim();
+  const q = trNormalize(document.getElementById('aramaInput').value.trim());
   const liste = tumKayitlar.filter(r => {
     const fOk = aktifFiltre === 'HEPSI' || r.durum === aktifFiltre;
-    const aOk = !q || (r.isim || '').toLowerCase().includes(q) || String(r.tc || '').includes(q);
+    const aOk = !q || trNormalize(r.isim).includes(q) || String(r.tc || '').includes(q);
     return fOk && aOk;
   });
 
@@ -415,7 +482,7 @@ function yukleModalKapat() {
 }
 
 async function yeniVekaletKaydet() {
-  const isim  = document.getElementById('yeniIsim').value.trim().toUpperCase();
+  const isim  = document.getElementById('yeniIsim').value.trim().toLocaleUpperCase('tr-TR');
   const tc    = document.getElementById('yeniTc').value.trim();
   const tarih = document.getElementById('yeniTarih').value.trim();
   const dosya = document.getElementById('yeniPdf').files[0];
